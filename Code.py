@@ -70,12 +70,12 @@ if uploaded_file is not None:
         st.image(image, caption="Uploaded Image", use_container_width=True)
 
     # Load models (cached)
-    with st.spinner("⏳ Loading AI models..."):
+    with st.spinner("⏳ Loading..."):
         cls_processor, cls_model = load_image_classifier()
         blip_processor, blip_model = load_blip_model()
 
     # Classify main object
-    with st.spinner("🏷️ Recognizing main subject..."):
+    with st.spinner("🏷️ Recognizing..."):
         category, conf = predict_image_category(image, cls_processor, cls_model)
 
     # Generate description and tags
