@@ -76,9 +76,8 @@ if uploaded_file is not None:
         category, conf = predict_category(image, cls_processor, cls_model)
 
     # Generate fine-grained description
-    with st.spinner("📝 Generating product description and tags..."):
+    with st.spinner("📝 Generating product description..."):
         caption = generate_description(image, blip_processor, blip_model)
-    tags = extract_tags(caption)
 
     # Show results
     with col2:
@@ -90,10 +89,5 @@ if uploaded_file is not None:
         st.subheader("📖 Product Description")
         st.write(caption)
         
-        st.subheader("🔖 Fine-grained Tags")
-        if tags:
-            st.markdown(", ".join([f"`{tag}`" for tag in tags]))
-        else:
-            st.write("No tags extracted.")
 else:
     st.info("👆 Please upload an image of a grocery product to get started.")
