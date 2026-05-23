@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 # Page config
 st.set_page_config(page_title="Grocery Product Classifier", layout="wide")
 st.title("🛒 Grocery Product Classifier & Tagging")
-st.markdown("Upload a product image")
+st.markdown("Upload a product image...")
 
 # ==========================
 # 1. Load grocery classification model (fine-tuned ConvNeXt / ViT / Swin)
