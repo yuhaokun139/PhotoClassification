@@ -6,14 +6,11 @@ from transformers import pipeline
 # ============================================================
 @st.cache_resource
 def load_classifier():
-    # Replace with your fine-tuned model ID on Hugging Face Hub
-    # Example: "your-username/ag-news-distilbert"
     model_id = "your-username/ag-news-distilbert"
     return pipeline("text-classification", model=model_id, device=-1)  # device=-1 uses CPU
 
 @st.cache_resource
 def load_ner():
-    # Use the specialized company name extraction model
     model_id = "nbroad/deberta-v3-base-company-names"
     return pipeline("token-classification", model=model_id, device=-1, aggregation_strategy="simple")
 
