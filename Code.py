@@ -2,17 +2,86 @@ import streamlit as st
 from transformers import pipeline
 
 # ============================================================
-# Cache models to avoid reloading on each interaction
+# Configuration
+# ============================================================
+# Replace with your fine-tuned model ID on Hugging Face Hub
+CLASSIFICATION_MODEL_ID = "yuhaokun/distilbert-ag-news"
+
+# NER model for company name extraction (specialized for company names)
+NER_MODEL_ID = "nbroad/deberta-v3-base-company-names"
+
+# ============================================================
+# Cache model loaders
 # ============================================================
 @st.cache_resource
 def load_classifier():
-    model_id = "yuhaokun/distilbert-ag-news"
-    return pipeline("text-classification", model=model_id, device=-1)  # device=-1 uses CPU
+    return pipeline(
+        "text-classification",
+        model=CLASSIFICATION_MODEL_ID,
+        device=-1,          # CPU (Streamlit Cloud has no GPU)
+        truncation=True,
+        max_length=512
+    )
 
 @st.cache_resource
 def load_ner():
-    model_id = "nbroad/deberta-v3-base-company-names"
-    return pipeline("token-classification", model=model_id, device=-1, aggregation_strategy="simple")
+    return pipeline(
+        "token-classification",
+        model=NER_MODEL_ID,
+        aggregation_strategy="simple",
+        device=-1
+    )
+
+# ============================================================
+# Helper functions
+# ============================================================
+def map_label(label):
+    """
+    Map the model's output label to AG News category names.
+    Supports both 'LABEL_0' format and direct category names.
+    """
+    label_mapping = {
+        "LABEL_0": "World",
+        "LABEL_1": "Sports",
+        "LABEL_2": "Business",
+        "LABEL_3": "Sci/Tech"
+    }
+    if label in label_mapping:
+        return label_mapping[label]
+    # Direct output like 'World' (some fine-tuned models)
+    if label in ["World", "Sports", "Business", "Sci/Tech"]:
+        return label
+    return label  # fallback
+
+def extract_company_names(ner_output):
+    """
+    Extract company names from NER pipeline output.
+    Handles different field names ('entity_group', 'entity', 'type')
+    and entity types ('COMPANY', 'ORG', 'B-COMPANY', 'I-COMPANY', etc.)
+    """
+    companies = []
+    for entity in ner_output:
+        # Get entity type from various possible keys
+        ent_type = entity.get('entity_group') or entity.get('entity') or entity.get('type') or ''
+        ent_type = ent_type.upper()
+        # Accept common company/organization labels
+        if ent_type in ('COMPANY', 'ORG', 'B-COMPANY', 'I-COMPANY', 'B-ORG', 'I-ORG'):
+            word = entity.get('word', '')
+            # Some models add leading '▁' or '##' - clean them
+            if word.startswith('▁'):
+                word = word[1:]
+            if word.startswith('##'):
+                word = word[2:]
+            if word:
+                companies.append(word)
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_companies = []
+    for c in companies:
+        if c not in seen:
+            seen.add(c)
+            unique_companies.append(c)
+    return unique_companies
 
 # ============================================================
 # Streamlit UI
@@ -21,42 +90,27 @@ st.set_page_config(page_title="News Classifier & Company Extractor", layout="cen
 st.title("📰 News Classifier & Company Extractor")
 st.markdown("Enter a news article to see its category and mentioned companies.")
 
-# Input text area
 user_input = st.text_area("News article text:", height=200)
 
-# Button to trigger analysis
 if st.button("Analyze News"):
     if not user_input.strip():
         st.warning("Please enter some text.")
     else:
         with st.spinner("Analyzing..."):
-            # Load models
             classifier = load_classifier()
-            ner = load_ner()
-            
-            # Run classification
+            ner_pipeline = load_ner()
+
+            # ---- Classification ----
             cls_result = classifier(user_input, truncation=True, max_length=512)[0]
-            label = cls_result['label']
+            raw_label = cls_result['label']
             confidence = cls_result['score']
-            
-            # Map label to category name (adjust mapping if your fine-tuned model uses different output)
-            # AG News standard mapping: 0=World,1=Sports,2=Business,3=Sci/Tech
-            # The pipeline may return 'LABEL_0', 'LABEL_1', etc.
-            label_map = {
-                "LABEL_0": "World",
-                "LABEL_1": "Sports",
-                "LABEL_2": "Business",
-                "LABEL_3": "Sci/Tech"
-            }
-            category = label_map.get(label, label)
-            
-            # Run NER for company names
-            entities = ner(user_input)
-            companies = [ent['word'] for ent in entities if ent.get('entity_group') == 'COMPANY']
-            # Remove duplicates while preserving order
-            companies = list(dict.fromkeys(companies))
-            
-            # Display results
+            category = map_label(raw_label)
+
+            # ---- NER (Company extraction) ----
+            ner_output = ner_pipeline(user_input)
+            companies = extract_company_names(ner_output)
+
+            # ---- Display Results ----
             st.subheader("📊 Results")
             col1, col2 = st.columns(2)
             with col1:
@@ -68,4 +122,9 @@ if st.button("Analyze News"):
                     for c in companies:
                         st.write(f"- {c}")
                 else:
-                    st.info("No company name detected.")
+                    st.info("No company names detected. The NER model may not have recognized any company entity in this text.")
+
+            # Optional: Expandable debug section to see raw outputs
+            with st.expander("Debug: Raw model outputs"):
+                st.write("Classification output:", cls_result)
+                st.write("NER output (first 5 entities):", ner_output[:5] if len(ner_output) > 5 else ner_output)
