@@ -6,7 +6,7 @@ from transformers import pipeline
 # ============================================================
 @st.cache_resource
 def load_classifier():
-    model_id = "your-username/ag-news-distilbert"
+    model_id = "yuhaokun/distilbert-ag-news"
     return pipeline("text-classification", model=model_id, device=-1)  # device=-1 uses CPU
 
 @st.cache_resource
