@@ -123,8 +123,3 @@ if st.button("Analyze News"):
                         st.write(f"- {c}")
                 else:
                     st.info("No company names detected. The NER model may not have recognized any company entity in this text.")
-
-            # Optional: Expandable debug section to see raw outputs
-            with st.expander("Debug: Raw model outputs"):
-                st.write("Classification output:", cls_result)
-                st.write("NER output (first 5 entities):", ner_output[:5] if len(ner_output) > 5 else ner_output)
